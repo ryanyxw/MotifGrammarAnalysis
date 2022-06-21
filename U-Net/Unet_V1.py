@@ -17,10 +17,10 @@ np.random.seed = seed
 
 IMG_WIDTH = 128
 IMG_HEIGHT = 1
-IMG_CHANNELS = 1
+IMG_CHANNELS = 4
 
-TRAIN_PATH = 'Data/stage1_train/'
-TEST_PATH = 'Data/stage1_test/'
+#TRAIN_PATH = 'Data/stage1_train/'
+#TEST_PATH = 'Data/stage1_test/'
 
 '''
 #Gives the full path towards all the files in the folder
