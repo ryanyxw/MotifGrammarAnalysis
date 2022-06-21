@@ -1,35 +1,5 @@
 
 import numpy as np
-
-#print(norm.ppf(0.25))#Getting the invNorm
-#print(norm.cdf(norm.ppf(0.25)))
-
-#print(np.random.rand())
-
-'''
-mu = norm.ppf(0.25)
-sigma = 1
-
-s = np.random.normal(mu, sigma, 10000)
-process = lambda x: norm.cdf(x)
-s = np.array([process(x) for x in s])
-
-
-print(abs(np.mean(s)))
-import matplotlib.pyplot as plt
-count, bins, ignored = plt.hist(s, 30, density=True)
-plt.plot(bins, 1/(sigma * np.sqrt(2 * np.pi)) *
-               np.exp( - (bins - mu)**2 / (2 * sigma**2) ),
-         linewidth=2, color='r')
-plt.show()
-'''
-
-def getProbabilities():
-    x = np.random.rand(4)
-    x = x / sum(x)
-    return x
-
-
 from pyrsistent import m
 import os
 from tqdm import tqdm 
@@ -40,66 +10,94 @@ finalLength = 128
 
 testPath = '../motif_databases/JASPAR/'
 
-#fileNames = next(os.walk(testPath))[2]
-fileNames = ["JASPAR2022_CORE_vertebrates_non-redundant_v2.meme"]
+fileNames = next(os.walk(testPath))[2]
+#fileNames = ["JASPAR2022_CORE_vertebrates_non-redundant_v2.meme"]
 
 #print(fileNames)
 
-def processMotif():
+
+def getProbabilities():
+    x = np.random.rand(4)
+    x = x / sum(x)
+    return x
+
+def isInteger(integer):
+    try:
+        eval(integer)
+        return True
+    except:
+        return False
+
+
+
+def processMotif(ifile, totMotif):
+    #Gets name of motif
     motifName = ifile.readline()
-    #print(motifName)
     if (motifName == "\n" or motifName == ""):
         return False
-    
     motifName = motifName.split(" ")[1]
+    #Gets the length of motif
     totLen = ifile.readline()
-    #print("originaltotLen = " + totLen)
     if (totLen == "" or totLen == "\n"):
         totLen = ifile.readline()
-    #print("totLen = " + totLen)
     totLen = int(totLen.split(" ")[5])
-    #print(motifName)
-    #print(totLen)
+
+    retMotif = []
+    #Loops through the next totLen lines, reading in each position and adding noise
     for i in range(totLen):
-        ifile.readline()
+        pos = ifile.readline().strip().split(" ")
+        pos = list(filter(isInteger, pos))
+        try:
+            
+            retMotif += [list(map(lambda x : eval(x), pos))]
+            a, c, t, g = getProbabilities()
+            retMotif[-1][0] = (retMotif[-1][0] + a) / 2
+            retMotif[-1][1] = (retMotif[-1][1] + c) / 2
+            retMotif[-1][2] = (retMotif[-1][2] + t) / 2
+            retMotif[-1][3] = (retMotif[-1][3] + g) / 2
+        except:
+            #We will only enter here if there is an error
+            print("ERROR")
+            print(pos)
+            print(eval(pos[0]))
+            print(eval(pos[1]))
+            print(eval(pos[2]))
+            print(eval(pos[3]))
+            return
+        #Insert processes
+    totMotif += [retMotif]
+    #Processes rest to prepare for next motif read
     test = ifile.readline()
     if (test == "" or test == "\n"):
         ifile.readline()
     ifile.readline()
-    
-    return totLen
+    #Returns whether the process was sucessful
+    return True
 
 
 
-def main(ifile):
+def processFile(ifile, totMotif):
+    #Burns the first lines
     beginBurn = ifile.readline()
-
-
     while (beginBurn != "Background letter frequencies\n" and beginBurn != "Background letter frequencies (from uniform background):\n"):
         beginBurn = ifile.readline()
-    ifile.readline() #This would read the specific letter frequences
-    #print ("YAYAYA")
-
+    #This would read the specific letter frequences
+    ifile.readline() 
     test = ifile.readline() #blank line
-    #print ("test output = " + test)
-    maxLen = -1
-    status = processMotif()
-    #print("passed!")
-    count = 0
+    #Processes the motif
+    status = processMotif(ifile, totMotif)
+    #While we still have motifs, we continue looping through
     while(status):
-        maxLen = max(maxLen, status)
-        #print(maxLen)
-        status = processMotif()
-        count += 1
-    print(count)
-    return(maxLen)
+        status = processMotif(ifile, totMotif)
 
-totMax = -1
 
-for n, fileName in tqdm(enumerate(fileNames), total = len(fileNames)):
-    #print ("entered " + fileName)
-    path = testPath + fileName
-    ifile = open(path, 'r')
-    totMax = max(totMax, main(ifile))
+def main():
+    #We loop through all the possible files
+    totMotif = []
+    for n, fileName in tqdm(enumerate(fileNames), total = len(fileNames)):
+        path = testPath + fileName
+        ifile = open(path, 'r')
+        processFile(ifile, totMotif)
+    print(len(totMotif))
 
-print (totMax)
+main()
