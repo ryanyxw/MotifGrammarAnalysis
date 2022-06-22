@@ -168,6 +168,9 @@ def main():
     success = 0
     fail = 0
     
+    #Used to count how many number of motifs sequences we've included
+    count = [0 for i in range(maxMotifsPerSequence)]
+
     #Loop through number of sequences we want and generate them
     while (success < generateNumSequence):
         #If over half of our generated numSequence has failed
@@ -177,9 +180,11 @@ def main():
         numMotif = np.random.randint(1, maxMotifsPerSequence)
         if (createArray(totMotif, numMotif, PWMFile, labelFile)):
             success += 1
+            count[numMotif] += 1
         else:
             fail += 1
-    print("Summary: \n\tSuccess - " + str(success) + "\n\tFail - " + str(fail))
+    print("\nSummary: \n\tSuccess - " + str(success) + "\n\tFail - " + str(fail))
+    print("\tSequence Motif Distribution = " + str(count))
     #print(len(totMotif))
 
 main()
