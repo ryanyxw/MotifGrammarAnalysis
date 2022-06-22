@@ -1,3 +1,6 @@
+#Ryan Wang @2022-06-21
+#Success and Fail represents how many attempts were successful - does not mean program actually succeeded or failed
+
 
 import numpy as np
 from pyrsistent import m
@@ -5,22 +8,26 @@ import os
 from tqdm import tqdm 
 
 finalLength = 128
+generateNumSequence = 100
+maxMotifsPerSequence = 4
 
 #ifile = open("JASPAR2022_CORE_vertebrates_non-redundant_v2.meme", 'r')
 
 testPath = '../motif_databases/JASPAR/'
 
-fileNames = next(os.walk(testPath))[2]
-#fileNames = ["JASPAR2022_CORE_vertebrates_non-redundant_v2.meme"]
+PWMFileName = './PWMOut.txt'
+labelFileName = './labelOut.txt'
 
-#print(fileNames)
+#fileNames = next(os.walk(testPath))[2]
+fileNames = ["JASPAR2022_CORE_vertebrates_non-redundant_v2.meme"]
 
-
+#Randomly gets probabilities for 4 positions
 def getProbabilities():
     x = np.random.rand(4)
     x = x / sum(x)
     return x
 
+#Determines whether or not the input is an integer
 def isInteger(integer):
     try:
         eval(integer)
@@ -28,8 +35,7 @@ def isInteger(integer):
     except:
         return False
 
-
-
+#Processes a single motif and creates the PWM correspondingly with added noise
 def processMotif(ifile, totMotif):
     #Gets name of motif
     motifName = ifile.readline()
@@ -74,8 +80,7 @@ def processMotif(ifile, totMotif):
     #Returns whether the process was sucessful
     return True
 
-
-
+#Processes an entire file of motifs
 def processFile(ifile, totMotif):
     #Burns the first lines
     beginBurn = ifile.readline()
@@ -90,6 +95,62 @@ def processFile(ifile, totMotif):
     while(status):
         status = processMotif(ifile, totMotif)
 
+#Above is all processing motif data
+############################################################################################
+############################################################################################
+############################################################################################
+#Below is creating training sequences
+
+#Determines whether or not our random choice is valid (ie the motifs aren't overlapping)
+def isValidStarting(randStartPos, currMotifs):
+    for i in range(len(randStartPos) - 1):
+        if (randStartPos[i] + len(currMotifs[i]) > randStartPos[i + 1]):
+            return False
+    return True
+
+#This writes an sequence with following parameters into a file: 
+    #totMotif is the array of all the motifs
+    #numMotifs should be the number of motifs we want to add into the array
+    #ofile is the file to write our results into
+def createArray(totMotif, numMotif, PWMFile, labelFile):
+    #Randomly get indexes for however many motifs we want to include
+    randIndex = np.random.randint(0, len(totMotif) - 1, numMotif)
+    currMotifs = []
+    for index in randIndex:
+        currMotifs += [totMotif[index]]
+    #Get the random starting positions of these motifs
+    randStartPos = sorted(np.random.randint(0, finalLength - 1, numMotif))
+    isFail = 0
+    #Test whether these starting positions are valid until we succeed
+    while (not isValidStarting(randStartPos, currMotifs)):
+        #If we've failed to find a valid starting position for over 100 times, we return fail state
+        if (isFail > 100):
+            return False
+        randStartPos = sorted(np.random.randint(0, finalLength - 1, numMotif))
+        isFail += 1
+
+    prevEnd = 0
+    for motifInd in range(numMotif):
+        #Add in random probabilities until we reach next motif position
+        for count in range(prevEnd, randStartPos[motifInd]):
+            randomProb = getProbabilities()
+            PWMFile.write(str(randomProb[0]) + " " + str(randomProb[1]) + " " + str(randomProb[2]) + " " + str(randomProb[3]) + "\n")
+            labelFile.write("0\n")
+        #Add in the motif
+        for motifLine in range(len(currMotifs[motifInd])):
+            PWMFile.write(str(currMotifs[motifInd][motifLine][0]) + " " + str(currMotifs[motifInd][motifLine][1]) + " " + str(currMotifs[motifInd][motifLine][2]) + " " + str(currMotifs[motifInd][motifLine][3]) + "\n")
+            labelFile.write("1\n")
+        prevEnd = randStartPos[motifInd] + len(currMotifs[motifInd])
+    
+    #Add in the portion from the last motif to the end of the length (default 128) character cycle
+    for count in range(prevEnd, finalLength):
+        randomProb = getProbabilities()
+        PWMFile.write(str(randomProb[0]) + " " + str(randomProb[1]) + " " + str(randomProb[2]) + " " + str(randomProb[3]) + "\n")
+        labelFile.write("0\n")
+    
+    PWMFile.write("\n")
+    labelFile.write("\n")
+    return True
 
 def main():
     #We loop through all the possible files
@@ -98,6 +159,27 @@ def main():
         path = testPath + fileName
         ifile = open(path, 'r')
         processFile(ifile, totMotif)
-    print(len(totMotif))
+    #We complete collection of all possible motifs. We now begin creating training sequences
+
+    PWMFile = open(PWMFileName, 'w')
+    labelFile = open(labelFileName, 'w')
+
+    
+    success = 0
+    fail = 0
+    
+    #Loop through number of sequences we want and generate them
+    while (success < generateNumSequence):
+        #If over half of our generated numSequence has failed
+        if (fail / generateNumSequence > 0.5):
+            print("FAILED: PLEASE CHOOSE PARAMETERS AGAIN")
+            break
+        numMotif = np.random.randint(1, maxMotifsPerSequence)
+        if (createArray(totMotif, numMotif, PWMFile, labelFile)):
+            success += 1
+        else:
+            fail += 1
+    print("Summary: \n\tSuccess - " + str(success) + "\n\tFail - " + str(fail))
+    #print(len(totMotif))
 
 main()
