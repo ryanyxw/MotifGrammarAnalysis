@@ -7,9 +7,12 @@ from pyrsistent import m
 import os
 from tqdm import tqdm 
 
+np.random.seed(0)
+
 finalLength = 128
-generateNumSequence = 100
+generateNumSequence = 1
 maxMotifsPerSequence = 4
+noiseImpact = 0.8 #Higher the noise impact, the higher the noise
 
 #ifile = open("JASPAR2022_CORE_vertebrates_non-redundant_v2.meme", 'r')
 
@@ -21,10 +24,12 @@ labelFileName = './labelOut.txt'
 #fileNames = next(os.walk(testPath))[2]
 fileNames = ["JASPAR2022_CORE_vertebrates_non-redundant_v2.meme"]
 
+
+
 #Randomly gets probabilities for 4 positions
 def getProbabilities():
     x = np.random.rand(4)
-    x = x / sum(x)
+    x = x / (sum(x))
     return x
 
 #Determines whether or not the input is an integer
@@ -57,10 +62,10 @@ def processMotif(ifile, totMotif):
             
             retMotif += [list(map(lambda x : eval(x), pos))]
             a, c, t, g = getProbabilities()
-            retMotif[-1][0] = (retMotif[-1][0] + a) / 2
-            retMotif[-1][1] = (retMotif[-1][1] + c) / 2
-            retMotif[-1][2] = (retMotif[-1][2] + t) / 2
-            retMotif[-1][3] = (retMotif[-1][3] + g) / 2
+            retMotif[-1][0] = (retMotif[-1][0] + a * noiseImpact) / 2
+            retMotif[-1][1] = (retMotif[-1][1] + c * noiseImpact) / 2
+            retMotif[-1][2] = (retMotif[-1][2] + t * noiseImpact) / 2
+            retMotif[-1][3] = (retMotif[-1][3] + g * noiseImpact) / 2
         except:
             #We will only enter here if there is an error
             print("ERROR")
@@ -70,7 +75,7 @@ def processMotif(ifile, totMotif):
             print(eval(pos[2]))
             print(eval(pos[3]))
             return
-        #Insert processes
+    #Insert processes
     totMotif += [retMotif]
     #Processes rest to prepare for next motif read
     test = ifile.readline()
@@ -171,7 +176,18 @@ def main():
     #Used to count how many number of motifs sequences we've included
     count = [0 for i in range(maxMotifsPerSequence)]
 
-    #Loop through number of sequences we want and generate them
+    #First loop through to get a general sense
+    for i in tqdm(range(0, generateNumSequence), desc = "Sequence Generation Process"):
+        if (fail / generateNumSequence > 0.5):
+            print("FAILED: PLEASE CHOOSE PARAMETERS AGAIN")
+            break
+        numMotif = np.random.randint(1, maxMotifsPerSequence)
+        if (createArray(totMotif, numMotif, PWMFile, labelFile)):
+            success += 1
+            count[numMotif] += 1
+        else:
+            fail += 1
+    #Loop through number of sequences we want and generate them (as a catch all)
     while (success < generateNumSequence):
         #If over half of our generated numSequence has failed
         if (fail / generateNumSequence > 0.5):
