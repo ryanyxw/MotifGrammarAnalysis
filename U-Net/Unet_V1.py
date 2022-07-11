@@ -2,78 +2,21 @@
 #dabnut
 from stringprep import c7_set
 import tensorflow as tf
-import os
-import random
+
 import numpy as np
  
-from tqdm import tqdm 
-
-from skimage.io import imread, imshow
-from skimage.transform import resize
-import matplotlib.pyplot as plt
-
-seed = 42
-np.random.seed = seed
-
 IMG_WIDTH = 128
 IMG_HEIGHT = 1
 IMG_CHANNELS = 4
 
-#TRAIN_PATH = 'Data/stage1_train/'
-#TEST_PATH = 'Data/stage1_test/'
 
-'''
-#Gives the full path towards all the files in the folder
-train_ids = next(os.walk(TRAIN_PATH))[1] #next returns the next item from this iterator, and it returns a tuple with list of names in 2nd element
-test_ids = next(os.walk(TEST_PATH))[1]
+model_path = "Model/motif-finder"
 
-X_train = np.zeros((len(train_ids), IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS), dtype=np.uint8)
-Y_train = np.zeros((len(train_ids), IMG_HEIGHT, IMG_WIDTH, 1), dtype=np.bool)
-
-
-print('Resizing training images and masks')
-for n, id_ in tqdm(enumerate(train_ids), total=len(train_ids)):   
-    path = TRAIN_PATH + id_
-    img = imread(path + '/images/' + id_ + '.png')[:,:,:IMG_CHANNELS]  
-    img = resize(img, (IMG_HEIGHT, IMG_WIDTH), mode='constant', preserve_range=True)
-    X_train[n] = img  #Fill empty X_train with values from img
-    mask = np.zeros((IMG_HEIGHT, IMG_WIDTH, 1), dtype=np.bool)
-    for mask_file in next(os.walk(path + '/masks/'))[2]:
-        mask_ = imread(path + '/masks/' + mask_file)
-        mask_ = np.expand_dims(resize(mask_, (IMG_HEIGHT, IMG_WIDTH), mode='constant',  
-                                      preserve_range=True), axis=-1)
-        mask = np.maximum(mask, mask_)  
-            
-    Y_train[n] = mask   
-
-# test images
-X_test = np.zeros((len(test_ids), IMG_HEIGHT, IMG_WIDTH, IMG_CHANNELS), dtype=np.uint8)
-sizes_test = []
-print('Resizing test images') 
-for n, id_ in tqdm(enumerate(test_ids), total=len(test_ids)):
-    path = TEST_PATH + id_
-    img = imread(path + '/images/' + id_ + '.png')[:,:,:IMG_CHANNELS]
-    sizes_test.append([img.shape[0], img.shape[1]])
-    img = resize(img, (IMG_HEIGHT, IMG_WIDTH), mode='constant', preserve_range=True)
-    X_test[n] = img
-
-print('Done!')
-
-image_x = random.randint(0, len(train_ids))
-imshow(X_train[image_x])
-plt.show()
-imshow(np.squeeze(Y_train[image_x]))
-plt.show()
-
-'''
 
 #Building the model
 
 #Defining the input layer
-inputs = tf.keras.layers.Input((IMG_WIDTH, IMG_HEIGHT, IMG_CHANNELS))
-
-#converts inputs (which are currently 8 bit integers) to floating points using lambda functions
-s = tf.keras.layers.Lambda(lambda x: x / 255)(inputs)
+s = tf.keras.layers.Input((IMG_WIDTH, IMG_HEIGHT, IMG_CHANNELS))
 
 
 ####################### First set of convolution + max pooling #######################
@@ -177,56 +120,35 @@ c9 = tf.keras.layers.Conv2D(16, (3, 1), activation='relu', kernel_initializer='h
 outputs = tf.keras.layers.Conv2D(1, (1, 1), activation='sigmoid')(c9)
 
 #Run the model
-model = tf.keras.Model(inputs=[inputs], outputs=[outputs])
+model = tf.keras.Model(inputs=[s], outputs=[outputs])
 #Choose the optimizer with algorithms used for back propagation
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 #Printout summary
 model.summary()
-'''
+
+
+
+#################################
+#loads the data
+
+xTrain = np.load('NumpyArr/xTrain.npy')
+yTrain = np.load('NumpyArr/yTrain.npy')
+
+print(xTrain.shape)
+print(yTrain.shape)
+
 #################################
 #Model checkpoint
 #verbose = 1 means that we want to print the status of the model on the screen
-checkpointer = tf.keras.callbacks.ModelCheckpoint('model_for_nuclei.h5', verbose = 1, save_best_only = True)
+
+
+checkpointer = tf.keras.callbacks.ModelCheckpoint(model_path, verbose = 1, save_best_only = True)
 
 callbacks = [
     tf.keras.callbacks.EarlyStopping(patience = 2, monitor = 'val_loss'),
-    tf.keras.callbacks.TensorBoard(log_dir='logs')
+    tf.keras.callbacks.TensorBoard(log_dir='logs'), 
+    checkpointer
 ]
 
-results = model.fit(X_train, Y_train,  validation_split=0.1, batch_size=16, epochs=25, callbacks=callbacks)
+results = model.fit(xTrain, yTrain,  validation_split=0.1, batch_size=50, epochs=1, callbacks=callbacks)
 
-
-#################################
-
-idx = random.randint(0, len(X_train))
-
-
-preds_train = model.predict(X_train[:int(X_train.shape[0]*0.9)], verbose=1)
-preds_val = model.predict(X_train[int(X_train.shape[0]*0.9):], verbose=1)
-preds_test = model.predict(X_test, verbose=1)
-
- 
-preds_train_t = (preds_train > 0.5).astype(np.uint8)
-preds_val_t = (preds_val > 0.5).astype(np.uint8)
-preds_test_t = (preds_test > 0.5).astype(np.uint8)
-
-
-# Perform a sanity check on some random training samples
-ix = random.randint(0, len(preds_train_t))
-imshow(X_train[ix])
-plt.show()
-imshow(np.squeeze(Y_train[ix]))
-plt.show()
-imshow(np.squeeze(preds_train_t[ix]))
-plt.show()
-
-# Perform a sanity check on some random validation samples
-ix = random.randint(0, len(preds_val_t))
-imshow(X_train[int(X_train.shape[0]*0.9):][ix])
-plt.show()
-imshow(np.squeeze(Y_train[int(Y_train.shape[0]*0.9):][ix]))
-plt.show()
-imshow(np.squeeze(preds_val_t[ix]))
-plt.show()
-
-'''

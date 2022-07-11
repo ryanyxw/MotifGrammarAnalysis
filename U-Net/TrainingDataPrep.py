@@ -7,12 +7,13 @@ from pyrsistent import m
 import os
 from tqdm import tqdm 
 
-np.random.seed(0)
+#np.random.seed(0) #Debugging purposes
 
 finalLength = 128
-generateNumSequence = 1
+generateNumSequence = 80000
 maxMotifsPerSequence = 4
 noiseImpact = 0.8 #Higher the noise impact, the higher the noise
+motifDistance = 10#We assume motifs are usually more than 10 base pairs apart
 
 #ifile = open("JASPAR2022_CORE_vertebrates_non-redundant_v2.meme", 'r')
 
@@ -109,7 +110,7 @@ def processFile(ifile, totMotif):
 #Determines whether or not our random choice is valid (ie the motifs aren't overlapping)
 def isValidStarting(randStartPos, currMotifs):
     for i in range(len(randStartPos) - 1):
-        if (randStartPos[i] + len(currMotifs[i]) > randStartPos[i + 1]):
+        if (randStartPos[i] + len(currMotifs[i]) + motifDistance > randStartPos[i + 1]):
             return False
     return True
 
@@ -119,19 +120,19 @@ def isValidStarting(randStartPos, currMotifs):
     #ofile is the file to write our results into
 def createArray(totMotif, numMotif, PWMFile, labelFile):
     #Randomly get indexes for however many motifs we want to include
-    randIndex = np.random.randint(0, len(totMotif) - 1, numMotif)
+    randIndex = np.random.randint(0, len(totMotif), numMotif)
     currMotifs = []
     for index in randIndex:
         currMotifs += [totMotif[index]]
-    #Get the random starting positions of these motifs
-    randStartPos = sorted(np.random.randint(0, finalLength - 1, numMotif))
+    #Get the random starting positions of these motifs (making sure that the motif does not go out of bounds)
+    randStartPos = sorted(np.random.randint(0, finalLength - len(currMotifs[-1]), numMotif))
     isFail = 0
     #Test whether these starting positions are valid until we succeed
     while (not isValidStarting(randStartPos, currMotifs)):
         #If we've failed to find a valid starting position for over 100 times, we return fail state
         if (isFail > 100):
             return False
-        randStartPos = sorted(np.random.randint(0, finalLength - 1, numMotif))
+        randStartPos = sorted(np.random.randint(0, finalLength - len(currMotifs[-1]), numMotif))
         isFail += 1
 
     prevEnd = 0
@@ -169,19 +170,20 @@ def main():
     PWMFile = open(PWMFileName, 'w')
     labelFile = open(labelFileName, 'w')
 
+    PWMFile.write(str(generateNumSequence) + "\n")
     
     success = 0
     fail = 0
     
     #Used to count how many number of motifs sequences we've included
-    count = [0 for i in range(maxMotifsPerSequence)]
+    count = [0 for i in range(maxMotifsPerSequence + 1)]
 
     #First loop through to get a general sense
     for i in tqdm(range(0, generateNumSequence), desc = "Sequence Generation Process"):
         if (fail / generateNumSequence > 0.5):
             print("FAILED: PLEASE CHOOSE PARAMETERS AGAIN")
             break
-        numMotif = np.random.randint(1, maxMotifsPerSequence)
+        numMotif = np.random.randint(1, maxMotifsPerSequence + 1)
         if (createArray(totMotif, numMotif, PWMFile, labelFile)):
             success += 1
             count[numMotif] += 1
@@ -193,7 +195,7 @@ def main():
         if (fail / generateNumSequence > 0.5):
             print("FAILED: PLEASE CHOOSE PARAMETERS AGAIN")
             break
-        numMotif = np.random.randint(1, maxMotifsPerSequence)
+        numMotif = np.random.randint(1, maxMotifsPerSequence + 1)
         if (createArray(totMotif, numMotif, PWMFile, labelFile)):
             success += 1
             count[numMotif] += 1
