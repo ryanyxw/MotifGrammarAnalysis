@@ -13,6 +13,8 @@ IMG_CHANNELS = 4
 
 model_path = "Model/motif-finder"
 input_path = "../Tomtom/CompleteProgram/filtered.chen"
+labelled_path = "../Tomtom/CompleteProgram/labelled.txt"
+output_path = "testingOut.txt"
 
 seed = 42
 np.random.seed(seed)
@@ -128,7 +130,7 @@ model = tf.keras.Model(inputs=[s], outputs=[outputs])
 #Choose the optimizer with algorithms used for back propagation
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 #Printout summary
-model.summary()
+# model.summary()
 
 
 #################################
@@ -150,10 +152,20 @@ def getProbabilities():
 
 #Converts a single sequence from filtered.chen to a 128 length sequence
 #Returns false if the sequence itself is longer than 128 length, true otherwise
-def processSingleSequence(inputFile, model):
+def processSingleSequence(inputFile, outputFile, labelledFile, model):
 
     #Gets rid of the name of the motif
-    name = inputFile.readline()[1:-1].split("_")
+    name = inputFile.readline()
+    if (name == "\n" or name == ""):
+        return False
+    name2 = labelledFile.readline()
+    if (name[1:] != name2): #If we realize that the names of the sequences we are comparing are wrong
+        print(name)
+        print(name2)
+        print("ERROR")
+        return False
+    outputFile.write(name) #Writes the name into the output file
+    name = name[1:-1].split("_")
     length = eval(name[-1]) - eval(name[-2]) + 1
 
     #returns false if our sequence length is longer than IMG_WIDTH
@@ -161,38 +173,64 @@ def processSingleSequence(inputFile, model):
         return False
 
     testSeq = []
-    line = inputFile.readline()
+    outSeq = []#Records what the actual expected results are
+    
 
     #We have IMG_WIDTH - length positions left to fill, so we choose a random number to represent new additions to the beginning and end
     pivotPoint = np.random.randint(0, IMG_WIDTH - length)
     print(pivotPoint)
 
+    #Positions leading up to the testing sequence (padded with random probabilities)
     for i in range(pivotPoint):
+        #Adds in a random set of probabiltiies
         testSeq += [getProbabilities()]
+        #Writes a 0 to the expected output
+        outSeq += ['0']
 
+    outSeq[-1] += '\nStart Now: -----------------'#The actual sequence starts from here
+
+    line = inputFile.readline()
     for i in range(length):
+        #Reads in the PWM for the corresponding sequence
         line = list(map(lambda x: eval(x), line.strip().split("\t")))
         totSum = sum(line)
         line = list(map(lambda x: x / totSum, line))
         testSeq += [line]
         line = inputFile.readline()
+
+        #Writes the corresponding expected output into outputFile
+        outSeq += [labelledFile.readline().strip()]
     
+    labelledFile.readline() #Burn the last empty row
+
+    outSeq[-1] += '\nEnd now: -----------------'#The actual sequence ended the previous line before
     for i in range(IMG_WIDTH - length - pivotPoint):
         testSeq += [getProbabilities()]
+        outSeq += ['0']
     
     testSeq = np.array(testSeq)[np.newaxis, :, np.newaxis, :]
     print(testSeq.shape)
 
     prediction = model.predict(testSeq, verbose = 1)
+    prediction = (prediction > 1e-2)[0]#ROC
 
-    print(prediction > 1e-4)
-    return prediction
+    for i in range(len(prediction)):
+        outputFile.write(str(prediction[i][0][0]) +  '\t' + str(outSeq[i]) + '\n')
+
+    outputFile.write('\n')
+    # print(prediction.shape)
+    # print(prediction > 1e-4)
+    return True
 
 
 
 def processFile(model):
     inputFile = open(input_path, 'r')
-    processSingleSequence(inputFile, model)
+    outputFile = open(output_path, 'w')
+    labelledFile = open(labelled_path, 'r')
+    #while(processSingleSequence(inputFile, outputFile, labelledFile, model)):
+    #    continue
+    processSingleSequence(inputFile, outputFile, labelledFile, model)
 
 processFile(model)
 

@@ -124,7 +124,7 @@ model = tf.keras.Model(inputs=[s], outputs=[outputs])
 #Choose the optimizer with algorithms used for back propagation
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 #Printout summary
-model.summary()
+# model.summary()
 
 
 #################################
@@ -149,5 +149,5 @@ callbacks = [
     checkpointer
 ]
 
-results = model.fit(xTrain, yTrain,  validation_split=0.1, batch_size=50, epochs=1, callbacks=callbacks)
+results = model.fit(xTrain, yTrain, validation_split=0.1, batch_size=50, epochs=40, callbacks=callbacks)
 

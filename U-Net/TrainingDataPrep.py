@@ -31,7 +31,7 @@ fileNames = ["JASPAR2022_CORE_vertebrates_non-redundant_v2.meme"]
 def getProbabilities():
     x = np.random.rand(4)
     x = x / (sum(x))
-    return x
+    return x #Make one position higher than others - not uniform like right now
 
 #Determines whether or not the input is an integer
 def isInteger(integer):
@@ -63,10 +63,11 @@ def processMotif(ifile, totMotif):
             
             retMotif += [list(map(lambda x : eval(x), pos))]
             a, c, t, g = getProbabilities()
-            retMotif[-1][0] = (retMotif[-1][0] + a * noiseImpact) / 2
-            retMotif[-1][1] = (retMotif[-1][1] + c * noiseImpact) / 2
-            retMotif[-1][2] = (retMotif[-1][2] + t * noiseImpact) / 2
-            retMotif[-1][3] = (retMotif[-1][3] + g * noiseImpact) / 2
+            #We want to divide by 1 + noiseImpact because we want to make sure PWM probabilities will still sum up to 1
+            retMotif[-1][0] = (retMotif[-1][0] + a * noiseImpact) / (1 + noiseImpact)
+            retMotif[-1][1] = (retMotif[-1][1] + c * noiseImpact) / (1 + noiseImpact)
+            retMotif[-1][2] = (retMotif[-1][2] + t * noiseImpact) / (1 + noiseImpact)
+            retMotif[-1][3] = (retMotif[-1][3] + g * noiseImpact) / (1 + noiseImpact)
         except:
             #We will only enter here if there is an error
             print("ERROR")
